@@ -24,7 +24,7 @@ class GNNModel(nn.Module):
         # Final GraphSAGE layer with hidden_dim as output size
         self.convs.append(pyg_nn.SAGEConv(hidden_dim, hidden_dim))
 
-        # Final linear layer for classification
+        # Final linear layer for multi-label classification
         self.fc = nn.Linear(hidden_dim, output_dim)  # Ensure this matches number of classes
 
     def forward(self, x, edge_index, batch=None):
@@ -44,6 +44,7 @@ class GNNModel(nn.Module):
 
         x = self.fc(x)
         return x
+
 
 
 

@@ -28,21 +28,27 @@ def train(model, data, optimizer, criterion):
     model.train()
     optimizer.zero_grad()
     
-    # Forward pass
     out = model(data.x, data.edge_index)
     
-    # Check output shape
-    if out.shape[0] != data.y.shape[0]:
-        raise ValueError(f"Output shape {out.shape} does not match target shape {data.y.shape}")
-
-    # Compute loss
-    loss = criterion(out, data.y)
+    # Ensure that output and target shapes match
+    output = out[data.train_mask]
+    target = data.y[data.train_mask]
     
-    # Backward pass and optimize
+    # Compute loss
+    loss = criterion(output, target)
     loss.backward()
     optimizer.step()
     
     return loss.item()
+
+def evaluate(model, data):
+    model.eval()
+    with torch.no_grad():
+        out = model(data.x, data.edge_index)
+        pred = out.argmax(dim=1)
+        correct = (pred[data.test_mask] == data.y[data.test_mask]).sum().item()
+        acc = correct / data.test_mask.sum().item()
+    return acc
 
 
 def main():
@@ -50,7 +56,7 @@ def main():
     
     # Load and preprocess the graph data
     print("Preprocessing graph data...")
-    data, num_classes = preprocess_graph(file_path)  # Return number of classes
+    data, num_classes = preprocess_graph(file_path)
     print("Graph data preprocessed.")
     
     # Ensure data is a PyTorch Geometric Data object
@@ -68,7 +74,10 @@ def main():
     print("Initializing model...")
     model = GNNModel(input_dim=input_dim, hidden_dim=hidden_dim, output_dim=output_dim, num_layers=num_layers)
     optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
-    criterion = nn.CrossEntropyLoss()
+    
+    # Use BCEWithLogitsLoss for multi-label classification
+    criterion = nn.BCEWithLogitsLoss()
+    
     print("Model initialized.")
 
     # Print data information for debugging
@@ -82,6 +91,11 @@ def main():
     for epoch in range(num_epochs):
         loss = train(model, data, optimizer, criterion)
         print(f"Epoch {epoch+1}/{num_epochs}, Loss: {loss:.4f}")
+
+        # Evaluate the model every few epochs
+        if (epoch + 1) % 5 == 0:
+            acc = evaluate(model, data)
+            print(f"Epoch {epoch+1}/{num_epochs}, Accuracy: {acc:.4f}")
 
     print("Training completed.")
 
